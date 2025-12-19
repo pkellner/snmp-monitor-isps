@@ -2,6 +2,8 @@
 
 A real-time dashboard for monitoring WAN interface status on SonicWall firewalls. Tracks uptime/downtime and logs state change events.
 
+<img src="docs/screenshot.png" alt="Dashboard Screenshot" width="600">
+
 ## Features
 
 - Real-time WAN interface status (up/down)
