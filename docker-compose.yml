@@ -1,0 +1,19 @@
+services:
+  snmp-monitor:
+    build:
+      context: .
+      args:
+        - NEXT_PUBLIC_REFRESH_MS=2000
+        - NEXT_PUBLIC_ISP_NAME_X1=Starlink
+        - NEXT_PUBLIC_ISP_NAME_X2=Zito
+    ports:
+      - "3000:3000"
+    environment:
+      - FETCH_METHOD=snmp
+      - SNMP_HOST=10.10.10.1
+      - SNMP_COMMUNITY=public
+      - SONICWALL_WAN_INTERFACES=X2,X1
+      - NEXT_PUBLIC_REFRESH_MS=2000
+      - NEXT_PUBLIC_ISP_NAME_X1=Starlink
+      - NEXT_PUBLIC_ISP_NAME_X2=Zito
+    restart: unless-stopped
