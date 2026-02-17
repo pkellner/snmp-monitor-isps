@@ -162,10 +162,23 @@ type PollData = {
 const renderCount = { current: 0 }; // DEBUG - outside component to survive re-renders
 
 export default function IspStatusDashboard(): React.ReactElement {
-  const refreshIntervalMs = Number(process.env.NEXT_PUBLIC_REFRESH_MS ?? "5000");
+  const rawEnv = process.env.NEXT_PUBLIC_REFRESH_MS;
+  const refreshIntervalMs = Number(rawEnv) || 5000;
 
   renderCount.current += 1;
-  console.log(`[RENDER #${renderCount.current}]`, new Date().toISOString()); // DEBUG
+  if (renderCount.current <= 3) { // DEBUG - only log first 3 renders
+    console.log("[ENV DEBUG]", {
+      NEXT_PUBLIC_REFRESH_MS_raw: rawEnv,
+      NEXT_PUBLIC_REFRESH_MS_type: typeof rawEnv,
+      NEXT_PUBLIC_REFRESH_MS_json: JSON.stringify(rawEnv),
+      numberResult: Number(rawEnv),
+      finalInterval: refreshIntervalMs,
+      NEXT_PUBLIC_BUILD_DATE: process.env.NEXT_PUBLIC_BUILD_DATE,
+      NEXT_PUBLIC_ISP_NAME_X1: process.env.NEXT_PUBLIC_ISP_NAME_X1,
+      NEXT_PUBLIC_ISP_NAME_X2: process.env.NEXT_PUBLIC_ISP_NAME_X2,
+    });
+  }
+  console.log(`[RENDER #${renderCount.current}] interval=${refreshIntervalMs}ms`, new Date().toISOString()); // DEBUG
 
   const [pollData, setPollData] = React.useState<PollData | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
