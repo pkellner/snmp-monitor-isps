@@ -157,74 +157,96 @@ const colors = {
   red: "#ef4444",
 };
 
+// Consolidated API data — one state update per poll, no cascading renders
+type PollData = {
+  statuses: IspInterfaceStatus[];
+  fetchedAt: string;
+  serverStartedAt: string;
+  ispStates: Record<string, ServerIspState>;
+};
+
 export default function IspStatusDashboard(): React.ReactElement {
   const refreshIntervalMs = Number(process.env.NEXT_PUBLIC_REFRESH_MS ?? "5000");
 
-  const [statuses, setStatuses] = React.useState<IspInterfaceStatus[]>([]);
+  const [pollData, setPollData] = React.useState<PollData | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const [fetchedAt, setFetchedAt] = React.useState<string | null>(null);
-  const [serverStartedAt, setServerStartedAt] = React.useState<string | null>(null);
-  const [ispStates, setIspStates] = React.useState<Record<string, ServerIspState>>({});
   const [trafficHistory, setTrafficHistory] = React.useState<TrafficHistory>({});
 
-  const updateTrafficHistory = React.useCallback((newStatuses: IspInterfaceStatus[]) => {
-    const now = Date.now();
-    const cutoff = now - 70000;
-
-    setTrafficHistory((prev) => {
-      const next = { ...prev };
-      for (const status of newStatuses) {
-        if (status.bytesIn === undefined) continue;
-
-        const existing = prev[status.name] || [];
-        const filtered = existing.filter((s) => s.timestamp >= cutoff);
-
-        next[status.name] = [
-          ...filtered,
-          {
-            timestamp: now,
-            bytesIn: status.bytesIn ?? 0,
-            bytesOut: status.bytesOut ?? 0,
-          },
-        ];
-      }
-      return next;
-    });
-  }, []);
-
-  async function load(): Promise<void> {
-    try {
-      const response = await fetch("/api/isp-status", { cache: "no-store" });
-      const json = (await response.json()) as ApiResponse;
-
-      if (!response.ok || !json.ok) {
-        setErrorMessage(!json.ok ? json.error : "Request failed");
-        return;
-      }
-
-      // Sort to put X2 (Zito) first
-      const sorted = [...json.statuses].sort((a, b) => {
-        if (a.name === "X2") return -1;
-        if (b.name === "X2") return 1;
-        return a.name.localeCompare(b.name);
-      });
-      setStatuses(sorted);
-      setFetchedAt(json.fetchedAt);
-      setErrorMessage(null);
-      setServerStartedAt(json.serverStartedAt);
-      setIspStates(json.ispStates);
-      updateTrafficHistory(json.statuses);
-    } catch (error: unknown) {
-      setErrorMessage(error instanceof Error ? error.message : "Unknown error");
-    }
-  }
-
+  // Use setTimeout (not setInterval) so we never pile up requests.
+  // Next poll only schedules after current one finishes.
   React.useEffect(() => {
-    void load();
-    const timerId = window.setInterval(() => void load(), refreshIntervalMs);
-    return () => window.clearInterval(timerId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    let timerId: ReturnType<typeof setTimeout>;
+
+    async function poll() {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        const response = await fetch("/api/isp-status", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        const json = (await response.json()) as ApiResponse;
+
+        if (cancelled) return;
+
+        if (!response.ok || !json.ok) {
+          setErrorMessage(!json.ok ? json.error : "Request failed");
+        } else {
+          const sorted = [...json.statuses].sort((a, b) => {
+            if (a.name === "X2") return -1;
+            if (b.name === "X2") return 1;
+            return a.name.localeCompare(b.name);
+          });
+
+          setPollData({
+            statuses: sorted,
+            fetchedAt: json.fetchedAt,
+            serverStartedAt: json.serverStartedAt,
+            ispStates: json.ispStates,
+          });
+          setErrorMessage(null);
+
+          // Update traffic history
+          const now = Date.now();
+          const cutoff = now - 70000;
+          setTrafficHistory((prev) => {
+            const next = { ...prev };
+            for (const status of json.statuses) {
+              if (status.bytesIn === undefined) continue;
+              const existing = prev[status.name] || [];
+              const filtered = existing.filter((s) => s.timestamp >= cutoff);
+              next[status.name] = [
+                ...filtered,
+                { timestamp: now, bytesIn: status.bytesIn ?? 0, bytesOut: status.bytesOut ?? 0 },
+              ];
+            }
+            return next;
+          });
+        }
+      } catch (error: unknown) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "Unknown error");
+        }
+      }
+
+      // Schedule next poll only after this one completes
+      if (!cancelled) {
+        timerId = setTimeout(poll, refreshIntervalMs);
+      }
+    }
+
+    void poll();
+    return () => { cancelled = true; clearTimeout(timerId); };
   }, [refreshIntervalMs]);
+
+  // Derive from pollData — no extra state needed
+  const statuses = pollData?.statuses ?? [];
+  const fetchedAt = pollData?.fetchedAt ?? null;
+  const serverStartedAt = pollData?.serverStartedAt ?? null;
+  const ispStates = pollData?.ispStates ?? {};
 
   const currentDurations = React.useMemo(() => {
     const now = new Date();
@@ -241,8 +263,7 @@ export default function IspStatusDashboard(): React.ReactElement {
     return result;
   }, [ispStates, fetchedAt]);
 
-  // Calculate bandwidth over short window (based on refresh) and 60s
-  const shortWindowSec = Math.max(10, Math.ceil(refreshIntervalMs / 1000) * 5); // At least 5 samples
+  const shortWindowSec = Math.max(10, Math.ceil(refreshIntervalMs / 1000) * 5);
   const bandwidthStats = React.useMemo(() => {
     const result: Record<string, { bwShort: { inBps: number; outBps: number } | null; bw60s: { inBps: number; outBps: number } | null }> = {};
     for (const [name, history] of Object.entries(trafficHistory)) {
