@@ -90,9 +90,21 @@ function processStatuses(statuses: IspInterfaceStatus[]): void {
   }
 }
 
+function getIspNames(): Record<string, string> {
+  const names: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    const match = key.match(/^(?:NEXT_PUBLIC_)?ISP_NAME_(\w+)$/);
+    if (match && value) {
+      names[match[1].toUpperCase()] = value;
+    }
+  }
+  return names;
+}
+
 export async function getTrackedStatuses(): Promise<{
   statuses: IspInterfaceStatus[];
   tracker: TrackerSnapshot;
+  ispNames: Record<string, string>;
 }> {
   const statuses = await getWanStatuses();
   processStatuses(statuses);
@@ -105,5 +117,6 @@ export async function getTrackedStatuses(): Promise<{
       ispStates: { ...state.ispStates },
       eventLog: [...state.eventLog],
     },
+    ispNames: getIspNames(),
   };
 }

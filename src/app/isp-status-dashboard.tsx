@@ -34,6 +34,7 @@ type ApiResponse =
       statuses: IspInterfaceStatus[];
       serverStartedAt: string;
       ispStates: Record<string, ServerIspState>;
+      ispNames: Record<string, string>;
       eventLog: Array<{
         id: number;
         interfaceName: string;
@@ -52,14 +53,6 @@ type TrafficSample = {
 
 type TrafficHistory = Record<string, TrafficSample[]>;
 
-const ISP_NAMES: Record<string, string> = {
-  X1: process.env.NEXT_PUBLIC_ISP_NAME_X1 || "X1",
-  X2: process.env.NEXT_PUBLIC_ISP_NAME_X2 || "X2",
-};
-
-function getIspName(interfaceName: string): string {
-  return ISP_NAMES[interfaceName.toUpperCase()] || interfaceName;
-}
 
 function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -163,6 +156,7 @@ type PollData = {
   fetchedAt: string;
   serverStartedAt: string;
   ispStates: Record<string, ServerIspState>;
+  ispNames: Record<string, string>;
 };
 
 export default function IspStatusDashboard(): React.ReactElement {
@@ -206,6 +200,7 @@ export default function IspStatusDashboard(): React.ReactElement {
             fetchedAt: json.fetchedAt,
             serverStartedAt: json.serverStartedAt,
             ispStates: json.ispStates,
+            ispNames: json.ispNames,
           });
           setErrorMessage(null);
 
@@ -247,6 +242,11 @@ export default function IspStatusDashboard(): React.ReactElement {
   const fetchedAt = pollData?.fetchedAt ?? null;
   const serverStartedAt = pollData?.serverStartedAt ?? null;
   const ispStates = pollData?.ispStates ?? {};
+  const ispNames = pollData?.ispNames ?? {};
+
+  function getIspName(interfaceName: string): string {
+    return ispNames[interfaceName.toUpperCase()] || interfaceName;
+  }
 
   const currentDurations = React.useMemo(() => {
     const now = new Date();
@@ -426,6 +426,11 @@ export default function IspStatusDashboard(): React.ReactElement {
           {serverStartedAt && (
             <div style={{ color: "#a5b4fc" }}>
               Server running for {formatDuration(Date.now() - new Date(serverStartedAt).getTime())}
+            </div>
+          )}
+          {process.env.NEXT_PUBLIC_BUILD_DATE && (
+            <div style={{ color: "#64748b" }}>
+              Built {process.env.NEXT_PUBLIC_BUILD_DATE} PT
             </div>
           )}
         </div>

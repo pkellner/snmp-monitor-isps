@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const { statuses, tracker } = await getTrackedStatuses();
+    const { statuses, tracker, ispNames } = await getTrackedStatuses();
     return NextResponse.json({
       ok: true,
       fetchedAt: new Date().toISOString(),
@@ -14,6 +14,7 @@ export async function GET(): Promise<NextResponse> {
       serverStartedAt: tracker.serverStartedAt,
       ispStates: tracker.ispStates,
       eventLog: tracker.eventLog,
+      ispNames,
     });
   } catch (error: unknown) {
     return NextResponse.json(
