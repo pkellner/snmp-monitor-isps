@@ -159,26 +159,8 @@ type PollData = {
   ispNames: Record<string, string>;
 };
 
-const renderCount = { current: 0 }; // DEBUG - outside component to survive re-renders
-
 export default function IspStatusDashboard(): React.ReactElement {
-  const rawEnv = process.env.NEXT_PUBLIC_REFRESH_MS;
-  const refreshIntervalMs = Number(rawEnv) || 5000;
-
-  renderCount.current += 1;
-  if (renderCount.current <= 3) { // DEBUG - only log first 3 renders
-    console.log("[ENV DEBUG]", {
-      NEXT_PUBLIC_REFRESH_MS_raw: rawEnv,
-      NEXT_PUBLIC_REFRESH_MS_type: typeof rawEnv,
-      NEXT_PUBLIC_REFRESH_MS_json: JSON.stringify(rawEnv),
-      numberResult: Number(rawEnv),
-      finalInterval: refreshIntervalMs,
-      NEXT_PUBLIC_BUILD_DATE: process.env.NEXT_PUBLIC_BUILD_DATE,
-      NEXT_PUBLIC_ISP_NAME_X1: process.env.NEXT_PUBLIC_ISP_NAME_X1,
-      NEXT_PUBLIC_ISP_NAME_X2: process.env.NEXT_PUBLIC_ISP_NAME_X2,
-    });
-  }
-  console.log(`[RENDER #${renderCount.current}] interval=${refreshIntervalMs}ms`, new Date().toISOString()); // DEBUG
+  const refreshIntervalMs = Number(process.env.NEXT_PUBLIC_REFRESH_MS) || 5000;
 
   const [pollData, setPollData] = React.useState<PollData | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -187,12 +169,10 @@ export default function IspStatusDashboard(): React.ReactElement {
   // Use setTimeout (not setInterval) so we never pile up requests.
   // Next poll only schedules after current one finishes.
   React.useEffect(() => {
-    console.log("[EFFECT] useEffect fired, refreshIntervalMs =", refreshIntervalMs); // DEBUG
     let cancelled = false;
     let timerId: ReturnType<typeof setTimeout>;
 
     async function poll() {
-      console.log("[POLL] starting fetch..."); // DEBUG
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 15000);
@@ -248,7 +228,6 @@ export default function IspStatusDashboard(): React.ReactElement {
       }
 
       // Schedule next poll only after this one completes
-      console.log("[POLL] done, scheduling next in", refreshIntervalMs, "ms"); // DEBUG
       if (!cancelled) {
         timerId = setTimeout(poll, refreshIntervalMs);
       }
