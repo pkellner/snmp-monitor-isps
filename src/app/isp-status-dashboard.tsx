@@ -22,23 +22,27 @@ type IspInterfaceStatus = {
   lastChange?: number;
 };
 
-type ApiResponse =
-  | { ok: true; fetchedAt: string; statuses: IspInterfaceStatus[] }
-  | { ok: false; error: string };
-
-type LogEntry = {
-  id: string;
-  isp: string;
-  interfaceName: string;
-  event: "up" | "down";
-  timestamp: Date;
-  duration?: number;
-};
-
-type IspState = {
+type ServerIspState = {
   linkUp: boolean | null;
-  lastChangeTime: Date;
+  lastChangeTime: string;
 };
+
+type ApiResponse =
+  | {
+      ok: true;
+      fetchedAt: string;
+      statuses: IspInterfaceStatus[];
+      serverStartedAt: string;
+      ispStates: Record<string, ServerIspState>;
+      eventLog: Array<{
+        id: number;
+        interfaceName: string;
+        event: "up" | "down";
+        timestamp: string;
+        duration?: number;
+      }>;
+    }
+  | { ok: false; error: string };
 
 type TrafficSample = {
   timestamp: number;
@@ -159,68 +163,9 @@ export default function IspStatusDashboard(): React.ReactElement {
   const [statuses, setStatuses] = React.useState<IspInterfaceStatus[]>([]);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = React.useState<string | null>(null);
-  const [, setEventLog] = React.useState<LogEntry[]>([]);
-  const [ispStates, setIspStates] = React.useState<Record<string, IspState>>({});
+  const [serverStartedAt, setServerStartedAt] = React.useState<string | null>(null);
+  const [ispStates, setIspStates] = React.useState<Record<string, ServerIspState>>({});
   const [trafficHistory, setTrafficHistory] = React.useState<TrafficHistory>({});
-  const eventIdCounter = React.useRef(0);
-
-  const updateStatesAndLog = React.useCallback(
-    (newStatuses: IspInterfaceStatus[]) => {
-      const now = new Date();
-
-      setIspStates((prevStates) => {
-        const nextStates = { ...prevStates };
-        const newEntries: LogEntry[] = [];
-
-        for (const status of newStatuses) {
-          const prev = prevStates[status.name];
-          const currentUp = status.linkUp;
-
-          if (!prev) {
-            nextStates[status.name] = {
-              linkUp: currentUp,
-              lastChangeTime: now,
-            };
-            if (currentUp !== null) {
-              eventIdCounter.current += 1;
-              newEntries.push({
-                id: `event-${eventIdCounter.current}`,
-                isp: getIspName(status.name),
-                interfaceName: status.name,
-                event: currentUp ? "up" : "down",
-                timestamp: now,
-              });
-            }
-            continue;
-          }
-
-          if (prev.linkUp !== currentUp && currentUp !== null) {
-            const duration = now.getTime() - prev.lastChangeTime.getTime();
-            eventIdCounter.current += 1;
-            newEntries.push({
-              id: `event-${eventIdCounter.current}`,
-              isp: getIspName(status.name),
-              interfaceName: status.name,
-              event: currentUp ? "up" : "down",
-              timestamp: now,
-              duration,
-            });
-            nextStates[status.name] = {
-              linkUp: currentUp,
-              lastChangeTime: now,
-            };
-          }
-        }
-
-        if (newEntries.length > 0) {
-          setEventLog((prev) => [...newEntries, ...prev].slice(0, 100));
-        }
-
-        return nextStates;
-      });
-    },
-    []
-  );
 
   const updateTrafficHistory = React.useCallback((newStatuses: IspInterfaceStatus[]) => {
     const now = Date.now();
@@ -266,7 +211,8 @@ export default function IspStatusDashboard(): React.ReactElement {
       setStatuses(sorted);
       setFetchedAt(json.fetchedAt);
       setErrorMessage(null);
-      updateStatesAndLog(json.statuses);
+      setServerStartedAt(json.serverStartedAt);
+      setIspStates(json.ispStates);
       updateTrafficHistory(json.statuses);
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : "Unknown error");
@@ -285,7 +231,7 @@ export default function IspStatusDashboard(): React.ReactElement {
     const result: Record<string, { state: string; duration: string }> = {};
     for (const [name, state] of Object.entries(ispStates)) {
       if (state.linkUp !== null) {
-        const duration = now.getTime() - state.lastChangeTime.getTime();
+        const duration = now.getTime() - new Date(state.lastChangeTime).getTime();
         result[name] = {
           state: state.linkUp ? "up" : "down",
           duration: formatDuration(duration),
@@ -454,8 +400,13 @@ export default function IspStatusDashboard(): React.ReactElement {
             </div>
           );
         })}
-        <div className="timestamp" style={{ marginLeft: "auto", fontSize: 11, color: "#94a3b8" }}>
-          {fetchedAt && new Date(fetchedAt).toLocaleTimeString()}
+        <div className="timestamp" style={{ marginLeft: "auto", fontSize: 11, color: "#94a3b8", textAlign: "right" }}>
+          <div>{fetchedAt && new Date(fetchedAt).toLocaleTimeString()}</div>
+          {serverStartedAt && (
+            <div style={{ color: "#a5b4fc" }}>
+              Server running for {formatDuration(Date.now() - new Date(serverStartedAt).getTime())}
+            </div>
+          )}
         </div>
       </header>
 

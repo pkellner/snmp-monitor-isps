@@ -38,12 +38,41 @@ You can use either the SonicWall REST API or SNMP to fetch interface status.
 
 Uses the SonicOS REST API. Requires admin credentials.
 
-### SonicWall Configuration
+### SonicWall Configuration for REST API
 
-1. Log into your SonicWall admin interface
-2. Navigate to **Device → Settings → Administration → API**
-3. Enable **SonicOS API**
-4. Click **Accept** to save
+#### Step 1: Enable the SonicOS API
+
+1. Log into your SonicWall admin interface (https://your-sonicwall-ip)
+2. Navigate to **Device → Settings → Administration**
+3. Click on the **API** tab
+4. Check the box for **Enable SonicOS API**
+5. Optionally configure:
+   - **Session Timeout**: How long API sessions stay active (default: 5 minutes)
+   - **Token Timeout**: How long authentication tokens remain valid
+6. Click **Accept** to save changes
+
+#### Step 2: Create a Dedicated API User (Recommended)
+
+For better security, create a dedicated read-only user for API access:
+
+1. Navigate to **Device → Users → Local Users & Groups**
+2. Click **Add User**
+3. Configure the user:
+   - **Name**: `api-monitor` (or your preference)
+   - **Password**: Create a strong password
+   - **User Type**: Select **Limited Administrator**
+4. Under **Administrator Privileges**, grant only:
+   - **Read-Only Access** to Network configuration
+5. Click **Accept** to save
+
+#### Step 3: Verify API Access
+
+Test that the API is working by visiting:
+```
+https://your-sonicwall-ip/api/sonicos/reporting/interfaces
+```
+
+You should be prompted for credentials. Use your admin or API user credentials.
 
 ### Environment Variables
 
@@ -68,21 +97,80 @@ SONICWALL_INSECURE_TLS=true
 
 Uses SNMP to poll interface status. More reliable for monitoring.
 
-### SonicWall Configuration
+### SonicWall Configuration for SNMP
 
-1. Log into your SonicWall admin interface
+#### Step 1: Enable SNMP on the SonicWall
+
+1. Log into your SonicWall admin interface (https://your-sonicwall-ip)
 2. Navigate to **Device → Settings → SNMP**
-3. Check **Enable SNMP**
-4. Configure the settings:
-   - **System Name**: Your firewall name
-   - **System Contact**: Your email (optional)
-   - **System Location**: Your location (optional)
-5. Under **SNMP Host Settings**, add your monitoring host:
-   - Click **Add**
-   - **Host IP Address**: IP of the machine running this dashboard (or `0.0.0.0` for any)
-   - **Community String**: `public` (or create a custom read-only string)
-   - **Port**: `161` (default)
-6. Click **Accept** to save
+3. Check the box for **Enable SNMP**
+
+#### Step 2: Configure SNMP System Information
+
+Fill in the system information fields:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| **System Name** | Identifier for your firewall | `Office-Firewall` |
+| **System Contact** | Admin contact email | `admin@company.com` |
+| **System Location** | Physical location | `Server Room A` |
+| **Asset Number** | Optional asset tag | `FW-001` |
+
+#### Step 3: Add SNMP Host Entry
+
+Under **SNMP Host Settings**, you must add at least one host that's allowed to query SNMP:
+
+1. Click the **Add** button
+2. Configure the SNMP host:
+
+| Field | Description | Recommended Value |
+|-------|-------------|-------------------|
+| **Host IP Address** | IP of your monitoring machine | Your server IP, or `0.0.0.0` to allow any host |
+| **Community String** | Shared secret for authentication | `public` (default) or create a custom string |
+| **Port** | SNMP port | `161` (default) |
+| **SNMP Version** | Protocol version | `SNMPv2c` (recommended) |
+
+3. Click **OK** to add the host entry
+
+#### Step 4: Configure Firewall Access Rules (If Needed)
+
+If your monitoring machine is on a different network zone, ensure SNMP traffic is allowed:
+
+1. Navigate to **Policy → Rules and Policies → Access Rules**
+2. Add a rule if needed:
+   - **Source Zone**: Zone where your monitoring machine resides (e.g., LAN)
+   - **Destination Zone**: The firewall's management zone
+   - **Service**: SNMP (UDP 161)
+   - **Action**: Allow
+
+#### Step 5: Save and Verify
+
+1. Click **Accept** to save all SNMP settings
+2. Test SNMP connectivity from your monitoring machine:
+
+```bash
+# Install snmp tools if needed
+# macOS: brew install net-snmp
+# Ubuntu/Debian: sudo apt install snmp
+# Raspberry Pi: sudo apt install snmp
+
+# Test SNMP connection
+snmpwalk -v2c -c public 10.10.10.1 ifDescr
+```
+
+You should see output listing interface descriptions like:
+```
+IF-MIB::ifDescr.1 = STRING: X0
+IF-MIB::ifDescr.2 = STRING: X1
+IF-MIB::ifDescr.3 = STRING: X2
+...
+```
+
+#### Security Notes
+
+- **Community String**: The default `public` is widely known. For production, use a unique string.
+- **Host Restriction**: Limit SNMP access to specific IPs rather than `0.0.0.0` when possible.
+- **SNMPv3**: For higher security, consider SNMPv3 with authentication (not currently supported by this dashboard).
 
 ### Environment Variables
 
