@@ -249,14 +249,15 @@ export default function IspStatusDashboard(): React.ReactElement {
   }
 
   const currentDurations = React.useMemo(() => {
-    const now = new Date();
+    if (!fetchedAt) return {};
+    const serverNow = new Date(fetchedAt).getTime();
     const result: Record<string, { state: string; duration: string }> = {};
     for (const [name, state] of Object.entries(ispStates)) {
       if (state.linkUp !== null) {
-        const duration = now.getTime() - new Date(state.lastChangeTime).getTime();
+        const duration = serverNow - new Date(state.lastChangeTime).getTime();
         result[name] = {
           state: state.linkUp ? "up" : "down",
-          duration: formatDuration(duration),
+          duration: formatDuration(Math.max(0, duration)),
         };
       }
     }
@@ -425,7 +426,7 @@ export default function IspStatusDashboard(): React.ReactElement {
           <div>{fetchedAt && new Date(fetchedAt).toLocaleTimeString()}</div>
           {serverStartedAt && (
             <div style={{ color: "#a5b4fc" }}>
-              Server running for {formatDuration(Date.now() - new Date(serverStartedAt).getTime())}
+              Server running for {fetchedAt && formatDuration(Math.max(0, new Date(fetchedAt).getTime() - new Date(serverStartedAt).getTime()))}
             </div>
           )}
           {process.env.NEXT_PUBLIC_BUILD_DATE && (
