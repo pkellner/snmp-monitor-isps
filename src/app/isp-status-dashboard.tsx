@@ -160,7 +160,17 @@ type PollData = {
 };
 
 export default function IspStatusDashboard(): React.ReactElement {
-  const refreshIntervalMs = Number(process.env.NEXT_PUBLIC_REFRESH_MS) || 5000;
+  const REFRESH_OPTIONS = [
+    { label: "0.5s", ms: 500 },
+    { label: "1s", ms: 1000 },
+    { label: "2s", ms: 2000 },
+    { label: "5s", ms: 5000 },
+    { label: "60s", ms: 60000 },
+  ] as const;
+  const defaultMs = Number(process.env.NEXT_PUBLIC_REFRESH_MS) || 5000;
+  const [refreshIntervalMs, setRefreshIntervalMs] = React.useState(
+    REFRESH_OPTIONS.some((o) => o.ms === defaultMs) ? defaultMs : 5000
+  );
 
   const [pollData, setPollData] = React.useState<PollData | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -422,13 +432,39 @@ export default function IspStatusDashboard(): React.ReactElement {
             </div>
           );
         })}
-        <div className="timestamp" style={{ marginLeft: "auto", fontSize: 11, color: "#94a3b8", textAlign: "right" }}>
+        <div className="timestamp" style={{ marginLeft: "auto", fontSize: 11, color: "#94a3b8", textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
           <div>{fetchedAt && new Date(fetchedAt).toLocaleTimeString()}</div>
           {serverStartedAt && (
             <div style={{ color: "#a5b4fc" }}>
               Server running for {fetchedAt && formatDuration(Math.max(0, new Date(fetchedAt).getTime() - new Date(serverStartedAt).getTime()))}
             </div>
           )}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+            <span style={{ color: "#64748b", fontSize: 10 }}>Refresh</span>
+            <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(148, 163, 184, 0.2)" }}>
+              {REFRESH_OPTIONS.map((opt) => (
+                <button
+                  key={opt.ms}
+                  onClick={() => setRefreshIntervalMs(opt.ms)}
+                  style={{
+                    padding: "2px 8px",
+                    fontSize: 10,
+                    fontWeight: refreshIntervalMs === opt.ms ? 700 : 400,
+                    fontFamily: "ui-monospace, 'SF Mono', Monaco, monospace",
+                    background: refreshIntervalMs === opt.ms
+                      ? "rgba(168, 85, 247, 0.4)"
+                      : "rgba(0, 0, 0, 0.2)",
+                    color: refreshIntervalMs === opt.ms ? "#e9d5ff" : "#64748b",
+                    border: "none",
+                    borderRight: "1px solid rgba(148, 163, 184, 0.1)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
           {process.env.NEXT_PUBLIC_BUILD_DATE && (
             <div style={{ color: "#64748b" }}>
               Built {process.env.NEXT_PUBLIC_BUILD_DATE} PT
