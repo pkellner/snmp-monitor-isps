@@ -20,6 +20,9 @@ type IspInterfaceStatus = {
   errorsIn?: number;
   errorsOut?: number;
   lastChange?: number;
+  probeStatus?: "alive" | "unavailable" | "unknown";
+  lbStatus?: string;
+  mainTargetStatus?: string;
 };
 
 type ServerIspState = {
@@ -408,7 +411,24 @@ export default function IspStatusDashboard(): React.ReactElement {
                 animation: isUp ? "none" : "pulse 1.5s infinite",
               }} />
               <div style={{ minWidth: 180 }}>
-                <div className="status-name" style={{ fontWeight: 700, fontSize: 14, color: "#f8fafc" }}>{ispName}</div>
+                <div className="status-name" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: "#f8fafc" }}>{ispName}</span>
+                  {status.probeStatus && (
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      padding: "1px 6px",
+                      borderRadius: 6,
+                      background: status.probeStatus === "alive"
+                        ? "rgba(34, 197, 94, 0.2)"
+                        : "rgba(239, 68, 68, 0.2)",
+                      color: status.probeStatus === "alive" ? "#4ade80" : "#f87171",
+                      border: `1px solid ${status.probeStatus === "alive" ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+                    }}>
+                      {status.probeStatus === "alive" ? "Probe Up" : "Probe Down"}
+                    </span>
+                  )}
+                </div>
                 <div className="status-info" style={{
                   fontSize: 11,
                   color: isUp ? "#86efac" : "#fca5a5",
@@ -425,7 +445,7 @@ export default function IspStatusDashboard(): React.ReactElement {
                       )}
                     </>
                   ) : (
-                    <span style={{ display: "inline-block", width: 65 }}>Down</span>
+                    <span>Down</span>
                   )}
                 </div>
               </div>
@@ -524,26 +544,43 @@ export default function IspStatusDashboard(): React.ReactElement {
                       {status.name} • {status.ipAddress || "No IP"}
                     </div>
                   </div>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "6px 14px",
-                    borderRadius: 20,
-                    background: isUp ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)",
-                    border: `1px solid ${isUp ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
-                  }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      background: isUp ? colors.green : colors.red,
-                      boxShadow: `0 0 8px ${isUp ? colors.green : colors.red}`,
-                      animation: isUp ? "none" : "pulse 1.5s infinite",
-                    }} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: isUp ? "#4ade80" : "#f87171" }}>
-                      {isUp ? "Online" : "Offline"}
-                    </span>
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "6px 14px",
+                      borderRadius: 20,
+                      background: isUp ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)",
+                      border: `1px solid ${isUp ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+                    }}>
+                      <div style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        background: isUp ? colors.green : colors.red,
+                        boxShadow: `0 0 8px ${isUp ? colors.green : colors.red}`,
+                        animation: isUp ? "none" : "pulse 1.5s infinite",
+                      }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: isUp ? "#4ade80" : "#f87171" }}>
+                        {isUp ? "Online" : "Offline"}
+                      </span>
+                    </div>
+                    {status.probeStatus && (
+                      <div style={{
+                        padding: "6px 12px",
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        background: status.probeStatus === "alive"
+                          ? "rgba(34, 197, 94, 0.15)"
+                          : "rgba(239, 68, 68, 0.15)",
+                        border: `1px solid ${status.probeStatus === "alive" ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+                        color: status.probeStatus === "alive" ? "#4ade80" : "#f87171",
+                      }}>
+                        {status.probeStatus === "alive" ? "Probe Up" : "Probe Down"}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -671,7 +708,7 @@ export default function IspStatusDashboard(): React.ReactElement {
                   {/* Details Footer */}
                   <div style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gridTemplateColumns: "repeat(4, 1fr)",
                     gap: 8,
                     fontSize: 10,
                     padding: "10px",
@@ -690,6 +727,20 @@ export default function IspStatusDashboard(): React.ReactElement {
                       <div style={{ color: "#64748b" }}>Last Change</div>
                       <div style={{ color: "#a5b4fc", fontFamily: "monospace", fontSize: 9 }}>
                         {status.lastChange !== undefined ? formatTimeticks(status.lastChange) : "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748b" }}>Probe</div>
+                      <div style={{
+                        fontFamily: "monospace",
+                        fontSize: 9,
+                        color: status.probeStatus === "alive" ? "#4ade80"
+                          : status.probeStatus === "unavailable" ? "#f87171"
+                          : "#a5b4fc",
+                      }}>
+                        {status.probeStatus === "alive" ? "Alive"
+                          : status.probeStatus === "unavailable" ? "Unavailable"
+                          : "N/A"}
                       </div>
                     </div>
                   </div>
